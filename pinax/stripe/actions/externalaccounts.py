@@ -59,6 +59,6 @@ def sync_bank_account_from_stripe_data(data):
         'status'
     )
     for a in top_level_attrs:
-        setattr(obj, a, data.get(a))
+        setattr(obj, a, data.get(a) or '')
     obj.save()
     return obj
