@@ -1,6 +1,7 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Q
+from .webhooks import registry
 
 from .models import (  # @@@ make all these read-only
     Charge,
@@ -154,9 +155,9 @@ admin.site.register(
     ],
 )
 
-admin.site.register(
-    Event,
-    raw_id_fields=["customer"],
+class EventAdmin(admin.ModelAdmin):
+
+    raw_id_fields=["customer"]
     list_display=[
         "stripe_id",
         "kind",
@@ -164,20 +165,39 @@ admin.site.register(
         "valid",
         "processed",
         "created_at"
-    ],
+    ]
     list_filter=[
-        # "kind",
         "created_at",
         "valid",
         "processed"
-    ],
+    ]
     search_fields=[
         "stripe_id",
         "customer__stripe_id",
-        # "validated_message"
-    ] + customer_search_fields(),
-)
+    ] + customer_search_fields()
 
+    actions = ['process_event']
+
+    def process_event(self, request, queryset):
+        """
+        Synchronously process any valid, unprocessed events.
+        """
+        if queryset.count() > 25:
+            self.message_user(
+                request,
+                "At most 25 events may be processed at a time.",
+                level=messages.ERROR,
+            )
+            return
+
+        for event in queryset:
+            WebhookClass = registry.get(event.kind)
+            if WebhookClass is not None:
+                webhook = WebhookClass(event)
+                webhook.process()
+
+
+admin.site.register(Event, EventAdmin)
 
 class SubscriptionInline(admin.TabularInline):
     model = Subscription
