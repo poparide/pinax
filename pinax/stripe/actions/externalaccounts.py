@@ -52,13 +52,19 @@ def sync_bank_account_from_stripe_data(data):
     obj, created = models.BankAccount.objects.get_or_create(
         **kwargs
     )
-    top_level_attrs = (
-        'account_holder_name', 'account_holder_type',
-        'bank_name', 'country', 'currency', 'default_for_currency',
-        'fingerprint', 'last4', 'metadata', 'routing_number',
-        'status'
+    top_level_non_null_attrs = (
+        'account_holder_name', 'account_holder_type', 'country', 'currency',
+        'fingerprint', 'last4', 'routing_number', 'status',
     )
-    for a in top_level_attrs:
-        setattr(obj, a, data.get(a) or '')
+    top_level_other_attrs = (
+        'bank_name', 'default_for_currency', 'metadata',
+    )
+    for a in top_level_non_null_attrs:
+        v = data.get('a') or ''
+        setattr(obj, a, v)
+    for a in top_level_other_attrs:
+        v = data.get('a')
+        setattr(obj, a, v)
+
     obj.save()
     return obj
